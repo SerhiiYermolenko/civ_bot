@@ -166,23 +166,36 @@ client.on('interactionCreate', async interaction => {
 });
 
 async function handleAutocomplete(interaction: AutocompleteInteraction) {
+    // discord.js doesn't support multi-select autocomplete, so we need to handle it manually
+    // we take the last bit of the input (separated by commas), and concat it with all previous inputs
     const focusedValue = interaction.options.getFocused().toString();
-    const inputValues = focusedValue.split(' ');
+    const inputValues = focusedValue.split(",").map((v) => v.trim());
     const lastInput = inputValues[inputValues.length - 1].toLowerCase();
-
-    const alreadyEnteredCivs = new Set(inputValues.slice(0, -1).map(v => v.toLowerCase()));
-    const availableCivs = civilizations
-        .map(civ => civ.name)
-        .filter(civ => !alreadyEnteredCivs.has(civ.toLowerCase()));
-
-    const filtered = availableCivs.filter(civ => civ.toLowerCase().startsWith(lastInput));
-    await interaction.respond(
-        filtered.slice(0, 25).map(choice => ({
-            name: choice,
-            value: [...inputValues.slice(0, -1), choice].join(' ')
-        }))
+    // Get all previously selected civs (everything except the last input)
+    const previousSelections = inputValues
+      .slice(0, -1)
+      .filter((v) => v.length > 0);
+    const alreadyEnteredCivs = new Set(
+      previousSelections.map((v) => v.toLowerCase())
     );
-}
+    const availableCivs = civilizations
+      .map((civ) => civ.name)
+      .filter((civ) => !alreadyEnteredCivs.has(civ.toLowerCase()));
+    const filtered = availableCivs.filter((civ) =>
+      civ.toLowerCase().startsWith(lastInput)
+    );
+    await interaction.respond(
+      filtered.slice(0, 25).map((choice) => {
+        const valueWithPreviousSelections = [...previousSelections, choice].join(
+          ", "
+        );
+        return {
+          name: valueWithPreviousSelections,
+          value: valueWithPreviousSelections,
+        };
+      })
+    );
+  }
 
 async function handleRollCommand(interaction: ChatInputCommandInteraction) {
     const playerCount = interaction.options.getInteger('players', true);
